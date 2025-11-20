@@ -171,3 +171,30 @@ btnClear.onclick = () => {
 
     console.log("Imagem removida e webcam resetada.");
 };
+let currentStream = null;
+let usingFrontCamera = true; // começa com a frontal
+
+async function startCamera() {
+    const constraints = {
+        video: {
+            facingMode: usingFrontCamera ? "user" : "environment"
+        }
+    };
+
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+    }
+
+    try {
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById("video");
+        video.srcObject = currentStream;
+    } catch (error) {
+        console.error("Erro ao acessar a câmera:", error);
+    }
+}
+
+document.getElementById("switchCameraBtn").addEventListener("click", () => {
+    usingFrontCamera = !usingFrontCamera; // troca a flag
+    startCamera(); // reinicia com a câmera oposta
+});
