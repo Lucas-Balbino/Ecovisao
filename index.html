@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ecovisão — Reconhecimento de Resíduos</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <h1>Ecovisão</h1>
+      <p>Classificador de resíduos sólidos com visão computacional — rápido e bonito.</p>
+      <div class="controls">
+
+        <!-- IDs CORRIGIDOS -->
+        <button id="btn-webcam">Usar Webcam</button>
+
+        <label class="btn-upload">
+          <input id="input-file" type="file" accept="image/*" />
+          Enviar imagem
+        </label>
+
+        <button id="btn-snap" disabled>Capturar (webcam)</button>
+        <button id="btn-clear">Limpar Imagem</button>
+
+
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="preview">
+      <div class="canvas-wrap">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+      </div>
+      <div class="info">
+        <h2>Resultados</h2>
+        <div id="results">Nenhuma análise ainda.</div>
+      </div>
+    </section>
+
+    <section class="about">
+      <h3>Como funciona</h3>
+      <ol>
+        <li>Envie uma imagem ou use a webcam.</li>
+        <li>A imagem é enviada ao Roboflow para detecção.</li>
+        <li>O site exibe caixas e rótulos sobre o objeto detectado.</li>
+      </ol>
+      <p class="small">Dica: use imagens bem iluminadas para melhores resultados.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Feito com ♻️ • Ecovisão</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
