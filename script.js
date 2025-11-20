@@ -1,200 +1,218 @@
 /* ======================
-      CONFIGURAÇÃO
-   ====================== */
-const API_KEY = "UKTDnAzGzevtJGFcTuyX";     // sua api key
-const PROJECT = "residuos-solidos-4rwsz";   // nome do projeto
-const VERSION = "4";                        // versão do modelo
+      CONFIG
+====================== */
+const API_KEY = "UKTDnAzGzevtJGFcTuyX";
+const MODEL = "residuos-solidos-4rwsz";
+const VERSION = "4";
 
 /* ======================
-    ELEMENTOS DO DOM
-   ====================== */
+   ELEMENTOS DO HTML
+====================== */
 const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+
 const btnWebcam = document.getElementById("btn-webcam");
 const btnSnap = document.getElementById("btn-snap");
-const fileInput = document.getElementById("input-file");
+const btnClear = document.getElementById("btn-clear");
+const inputFile = document.getElementById("input-file");
+const btnStop = document.getElementById("btn-stop");
+
+
 const resultsEl = document.getElementById("results");
 
+let currentFacing = "environment";
 let stream = null;
 
 /* ======================
-     DESENHAR IMAGEM
-   ====================== */
-function drawImageToCanvas(source){
-    canvas.width = source.videoWidth || source.width;
-    canvas.height = source.videoHeight || source.height;
-    ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-}
-
-/* ======================
-   ENVIAR PARA ROBOFLOW
-   ====================== */
-async function inferImage(base64){
-    resultsEl.innerHTML = "Analisando...";
-
-    const url = `https://detect.roboflow.com/residuos-solidos-4rwsz/4?api_key=UKTDnAzGzevtJGFcTuyX&format=json`;
-
-    // converter base64 → blob
-    const blob = await (await fetch(base64)).blob();
-
-    const formData = new FormData();
-    formData.append("file", blob, "image.jpg");
-
+   ABRIR CÂMERA
+====================== */
+async function openCamera() {
     try {
-        const response = await fetch(url, { 
-            method: "POST",
-            body: formData
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: currentFacing }
         });
 
-        const text = await response.text();
-        console.log("Resposta do Roboflow:", text);
+        video.srcObject = stream;
 
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            resultsEl.innerHTML = "❌ Erro: retorno inválido do Roboflow.";
-            return;
-        }
+        video.style.display = "block";
+        canvas.style.display = "none";
 
-        if (!data.predictions) {
-            resultsEl.innerHTML = "❌ O modelo não retornou previsões.";
-            return;
-        }
+        btnSnap.disabled = false;
 
-        drawBoxes(data.predictions);
-
-        if (data.predictions.length === 0) {
-            resultsEl.innerHTML = "<i>Nenhum resíduo detectado.</i>";
-        } else {
-            resultsEl.innerHTML = data.predictions
-                .map(p => `${p.class} — ${(p.confidence * 100).toFixed(1)}%`)
-                .join("<br>");
-        }
-
-    } catch(err){
-        resultsEl.innerHTML = "❌ Erro ao conectar ao Roboflow";
-        console.error("ERRO NO FETCH:", err);
+    } catch (err) {
+        alert("Permissão da câmera negada!");
+        console.log("Erro da câmera:", err);
     }
-}
-
-
-/* ======================
-     DESENHAR CAIXAS
-   ====================== */
-function drawBoxes(predictions){
-    ctx.lineWidth = 3;
-
-    predictions.forEach(p=>{
-        const x = p.x - p.width/2;
-        const y = p.y - p.height/2;
-
-        ctx.strokeStyle = "#06b6d4";
-        ctx.strokeRect(x, y, p.width, p.height);
-
-        const label = `${p.class} ${(p.confidence*100).toFixed(1)}%`;
-
-        ctx.fillStyle = "rgba(6,182,212,0.5)";
-        ctx.fillRect(x, y - 20, ctx.measureText(label).width + 10, 20);
-
-        ctx.fillStyle = "white";
-        ctx.fillText(label, x + 5, y - 5);
-    });
-}
-
-/* ======================
-      WEBCAM
-   ====================== */
-btnWebcam.onclick = async ()=>{
-    if(stream){
-        stream.getTracks().forEach(t=>t.stop());
-        stream = null;
-        video.srcObject = null;
-        btnWebcam.textContent = "Usar Webcam";
-        btnSnap.disabled = true;
-        return;
-    }
-
-    stream = await navigator.mediaDevices.getUserMedia({video:true});
-    video.srcObject = stream;
-
-    btnWebcam.textContent = "Parar Webcam";
     btnSnap.disabled = false;
-};
+    btnStop.disabled = false;
 
-btnSnap.onclick = ()=>{
-    drawImageToCanvas(video);
-    const base64 = canvas.toDataURL("image/jpeg");
-    inferImage(base64);
+    
+}
+
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+
+    video.srcObject = null;
+
+    btnStop.disabled = true;
+    btnSnap.disabled = true;
+
+    video.style.display = "none";
+    canvas.style.display = "none";
+
+    resultsEl.innerHTML = "Câmera parada.";
+}
+
+
+btnWebcam.onclick = () => openCamera();
+btnStop.onclick = () => stopCamera();
+
+
+/* ======================
+   CAPTURAR DA CÂMERA
+====================== */
+btnSnap.onclick = () => {
+
+    if (!video.srcObject) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    video.style.display = "none";
+    canvas.style.display = "block";
+
+        // Cria um objeto Image com o conteúdo atual do canvas
+    const img = new Image();
+    img.src = canvas.toDataURL("image/jpeg");
+
+    img.onload = () => {
+        const base64 = resizeImageToFixedSize(img);
+        inferImage(base64);
+};
+    const resized = resizeImageToFixedSize(img);
+    inferImage(resized);
+ 
+
 };
 
 /* ======================
-       UPLOAD
-   ====================== */
-fileInput.onchange = ()=>{
-    const file = fileInput.files[0];
+     LIMPAR
+====================== */
+btnClear.onclick = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    resultsEl.innerHTML = "Nenhuma análise ainda.";
+
+    canvas.style.display = "none";
+    video.style.display = "block";
+};
+
+/* ======================
+   UPLOAD DE IMAGEM
+====================== */
+inputFile.onchange = () => {
+    const file = inputFile.files[0];
     const img = new Image();
 
-    img.onload = ()=>{
-        drawImageToCanvas(img);
-        const base64 = canvas.toDataURL("image/jpeg");
+    img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.drawImage(img, 0, 0);
+
+        video.style.display = "none";
+        canvas.style.display = "block";
+
+        const base64 = canvas.toDataURL("image/jpeg").replace("data:image/jpeg;base64,", "");
         inferImage(base64);
     };
 
     img.src = URL.createObjectURL(file);
 };
+
 /* ======================
-       LIMPAR IMAGEM
-   ====================== */
-const btnClear = document.getElementById("btn-clear");
-
-btnClear.onclick = () => {
-    // Limpa o canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Remove texto do resultado
-    resultsEl.innerHTML = "";
-
-    // Reseta o src do video
-    video.srcObject = null;
-
-    // Se a webcam estiver ligada, desligar
-    if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-    }
-
-    // Resetar interface
-    btnWebcam.textContent = "Usar Webcam";
-    btnSnap.disabled = true;
-
-    console.log("Imagem removida e webcam resetada.");
-};
-let currentStream = null;
-let usingFrontCamera = true; // começa com a frontal
-
-async function startCamera() {
-    const constraints = {
-        video: {
-            facingMode: usingFrontCamera ? "user" : "environment"
-        }
-    };
-
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-    }
+     ENVIAR PRO ROBOFLOW
+====================== */
+async function inferImage(base64) {
+    resultsEl.innerHTML = "Analisando...";
 
     try {
-        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const video = document.getElementById("video");
-        video.srcObject = currentStream;
-    } catch (error) {
-        console.error("Erro ao acessar a câmera:", error);
+        const resp = await fetch(
+             `https://detect.roboflow.com/residuos-solidos-4rwsz/4?api_key=UKTDnAzGzevtJGFcTuyX&format=json`,
+            {
+                method: "POST",
+                body: base64
+            }
+        );
+
+        if (!resp.ok) {
+            resultsEl.innerHTML = "Erro na análise.";
+            console.log("Erro HTTP:", resp.status);
+            return;
+        }
+
+        const data = await resp.json();
+
+        if (!data.predictions || data.predictions.length === 0) {
+            resultsEl.innerHTML = "Nenhum resíduo detectado.";
+            return;
+        }
+
+        drawBoxes(data.predictions, data.image);
+
+        resultsEl.innerHTML = data.predictions
+            .map(p => `${p.class} — ${(p.confidence * 100).toFixed(1)}%`)
+            .join("<br>");
+
+    } catch (err) {
+        console.error("ERRO AO ENVIAR:", err);
+        resultsEl.innerHTML = "Falha ao enviar a imagem.";
     }
 }
 
-document.getElementById("switchCameraBtn").addEventListener("click", () => {
-    usingFrontCamera = !usingFrontCamera; // troca a flag
-    startCamera(); // reinicia com a câmera oposta
-});
+/* ======================
+     DESENHAR CAIXAS
+====================== */
+function drawBoxes(predictions, imgSize) {
+    if (!predictions) return;
+
+    predictions.forEach(p => {
+
+        const x = (p.x - p.width / 2) / imgSize.width * canvas.width;
+        const y = (p.y - p.height / 2) / imgSize.height * canvas.height;
+        const w = (p.width / imgSize.width) * canvas.width;
+        const h = (p.height / imgSize.height) * canvas.height;
+
+        ctx.strokeStyle = "#00e1ff";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, w, h);
+
+        const label = `${p.class} ${(p.confidence * 100).toFixed(1)}%`;
+
+        ctx.fillStyle = "rgba(0,225,255,0.5)";
+        ctx.fillRect(x, y - 24, ctx.measureText(label).width + 12, 24);
+
+        ctx.fillStyle = "#000";
+        ctx.font = "16px Arial";
+        ctx.fillText(label, x + 6, y - 7);
+    });
+}
+
+function resizeImageToFixedSize(img, width = 640, height = 640) {
+    const offCanvas = document.createElement("canvas");
+    const offCtx = offCanvas.getContext("2d");
+
+    offCanvas.width = width;
+    offCanvas.height = height;
+
+    // Desenha a imagem dentro do tamanho padronizado
+    offCtx.drawImage(img, 0, 0, width, height);
+
+    // Retorna Base64 SEM o prefixo
+    return offCanvas.toDataURL("image/jpeg").replace("data:image/jpeg;base64,", "");
+}
