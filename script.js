@@ -1,9 +1,4 @@
-/* ======================
-      CONFIG
-====================== */
-const API_KEY = "UKTDnAzGzevtJGFcTuyX";
-const MODEL = "residuos-solidos-4rwsz";
-const VERSION = "4";
+
 
 /* ======================
    ELEMENTOS DO HTML
